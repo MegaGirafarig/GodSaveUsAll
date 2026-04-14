@@ -1,17 +1,36 @@
-public class GameController {
-    public static void main(String[] args) {
-        GameController game = new GameController();
-        game.startGame();
+import java.io.*;
+import java.awt.*;
+
+public class GameController extends Thread {
+    private GameFrame frame;
+    private PrintWriter networkOut;
+    private BufferedReader networkIn;
+    private int playerId;
+    private boolean running = true;
+
+    public GameController(GameFrame frame, PrintWriter out, BufferedReader in, int playerId) {
+        this.frame = frame;
+        this.networkOut = out;
+        this.networkIn = in;
+        this.playerId = playerId;
+    }
+
+    public void setNetworkStreams(PrintWriter out, BufferedReader in) {
+        this.networkOut = out;
+        this.networkIn = in;
+        System.out.println("Network streams set for Player " + playerId);
+    }
+
+    @Override
+    public void run() {
+        startGame();
     }
 
     public void startGame() {
-        // Main game loop
-        boolean running = true;
+        System.out.println("Player " + playerId + " game started");
         while (running) {
-            // Game logic goes here
             updateGame();
             renderGame();
-            // Check for exit conditions
             if (gameShouldEnd()) {
                 running = false;
             }
@@ -20,17 +39,47 @@ public class GameController {
     }
 
     private void updateGame() {
-        // Update game state
-        System.out.println("Updating game state...");
+        GameCanvas canvas = frame.getCanvas();
+        if (canvas != null) {
+            canvas.update();
+            if (networkOut != null) {
+                Character playerChar = canvas.getPlayerCharacter();
+                if (playerChar != null) {
+                    networkOut.println(playerChar.serialize());
+                }
+            }
+            if (networkIn != null) {
+                try {
+                    if (networkIn.ready()) {
+                        String data = networkIn.readLine();
+                        if (data != null) {
+                            canvas.updateOpponentCharacter(data);
+                        }
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        try {
+            Thread.sleep(16);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     private void renderGame() {
-        // Render the game
-        System.out.println("Rendering game...");
+        GameCanvas canvas = frame.getCanvas();
+        if (canvas != null) {
+            canvas.repaint();
+        }
     }
 
     private boolean gameShouldEnd() {
-        // Check for conditions to end the game
-        return false; // Temporary; implement your logic here
+        return false;
+    }
+
+    public void stopGame() {
+        running = false;
     }
 }
