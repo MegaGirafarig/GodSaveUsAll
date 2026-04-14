@@ -29,17 +29,37 @@ public class GameStarter {
     private static void hostGame() { 
         try { 
             ServerSocket hostServer = new ServerSocket(5001); 
+            playerId = 1; 
+            
+            // Start game immediately so host can move
+            GameFrame frame = new GameFrame(800, 600, playerId);
+            frame.setUpGUI();
+            GameController controller = new GameController(frame, null, null, playerId);
+            
             JOptionPane.showMessageDialog( 
                 null, 
                 "Game hosted! Waiting for opponent...", 
                 "Host Started", 
                 JOptionPane.INFORMATION_MESSAGE 
             ); 
-            Socket opponentSocket = hostServer.accept(); 
-            serverOut = new PrintWriter(opponentSocket.getOutputStream(), true); 
-            serverIn = new BufferedReader(new InputStreamReader(opponentSocket.getInputStream())); 
-            playerId = 1; 
-            startGame(playerId, serverOut, serverIn); 
+            
+            // Accept opponent connection in a separate thread
+            new Thread(() -> {
+                try {
+                    Socket opponentSocket = hostServer.accept();
+                    serverOut = new PrintWriter(opponentSocket.getOutputStream(), true);
+                    serverIn = new BufferedReader(new InputStreamReader(opponentSocket.getInputStream()));
+                    
+                    // Now that opponent is connected, set up the communication
+                    controller.setNetworkStreams(serverOut, serverIn);
+                    JOptionPane.showMessageDialog(null, "Opponent connected!", "Connection", JOptionPane.INFORMATION_MESSAGE);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(null, "Failed to accept opponent!", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }).start();
+            
+            controller.start(); 
         } catch (IOException e) { 
             e.printStackTrace(); 
             JOptionPane.showMessageDialog(null, "Failed to host game!", "Error", JOptionPane.ERROR_MESSAGE); 
